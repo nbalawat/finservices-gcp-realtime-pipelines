@@ -8,7 +8,7 @@ variable "environment" {
   type        = string
 }
 
-variable "enabled_subscribers" {
-  description = "List of enabled subscribers"
-  type        = list(string)
+variable "service_account" {
+  description = "Service account email to grant access to"
+  type        = string
 }

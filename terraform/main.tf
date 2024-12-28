@@ -7,50 +7,57 @@ provider "google" {
 module "services" {
   source             = "./modules/services"
   project_id         = var.project_id
-  enabled_subscribers = var.enabled_subscribers
+}
+
+# Create IAM resources
+module "iam" {
+  source = "./modules/iam"
+  project_id = var.project_id
+  environment = var.environment
+  depends_on = [module.services]
 }
 
 module "pubsub" {
   source             = "./modules/pubsub"
   project_id         = var.project_id
   environment        = var.environment
-  enabled_subscribers = var.enabled_subscribers
+  service_account = module.iam.service_account_email
   
-  depends_on = [module.services]
+  depends_on = [module.services, module.iam]
 }
 
 module "storage" {
   source             = "./modules/storage"
   project_id         = var.project_id
   environment        = var.environment
-  region             = var.region
-  enabled_subscribers = var.enabled_subscribers
+  service_account = module.iam.service_account_email
   
-  depends_on = [module.services]
+  depends_on = [module.services, module.iam]
 }
 
 module "databases" {
   source             = "./modules/databases"
   project_id         = var.project_id
   environment        = var.environment
-  region             = var.region
-  enabled_subscribers = var.enabled_subscribers
+  service_account = module.iam.service_account_email
   
-  depends_on = [module.services]
+  depends_on = [module.services, module.iam]
 }
 
-module "dataflow" {
-  source                    = "./modules/dataflow"
-  project_id               = var.project_id
-  environment              = var.environment
-  enabled_subscribers      = var.enabled_subscribers
-  temp_gcs_location       = module.storage.temp_bucket_url
-  dataflow_template_path  = "gs://dataflow-templates/latest/PubSub_to_BigTable"  # Example template
-  bigtable_subscription_path = try(module.pubsub.bigtable_subscription_path, "")
-  bigquery_subscription_path = try(module.pubsub.bigquery_subscription_path, "")
-  gcs_subscription_path      = try(module.pubsub.gcs_subscription_path, "")
-  alloydb_subscription_path  = try(module.pubsub.alloydb_subscription_path, "")
-  cloudsql_subscription_path = try(module.pubsub.cloudsql_subscription_path, "")
-  
-  depends_on = [module.services, module.pubsub, module.storage, module.databases]
-}
+# We'll add Dataflow module later
+# module "dataflow" {
+#   source             = "./modules/dataflow"
+#   project_id         = var.project_id
+#   environment        = var.environment
+#   enabled_subscribers = var.enabled_subscribers
+#   temp_gcs_location  = module.storage.temp_bucket_url
+#   
+#   # Use classic template
+#   template_path     = "gs://${module.storage.staging_bucket_name}/templates/payment_pipeline"
+#   
+#   # Single subscription for all payment data
+#   input_subscription = module.pubsub.subscription_path
+#   region            = var.region
+#   
+#   depends_on = [module.services, module.pubsub, module.storage, module.databases]
+# }

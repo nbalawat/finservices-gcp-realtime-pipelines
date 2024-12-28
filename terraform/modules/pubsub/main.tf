@@ -1,39 +1,47 @@
-resource "google_pubsub_topic" "main" {
-  name    = "data-pipeline-topic-${var.environment}"
+resource "google_pubsub_topic" "payments" {
+  name    = "payments-${var.environment}"
   project = var.project_id
 }
 
-resource "google_pubsub_subscription" "bigtable" {
-  count   = contains(var.enabled_subscribers, "bigtable") ? 1 : 0
-  name    = "bigtable-subscription-${var.environment}"
-  topic   = google_pubsub_topic.main.name
+resource "google_pubsub_subscription" "payments" {
+  name    = "payments-sub-${var.environment}"
+  topic   = google_pubsub_topic.payments.name
   project = var.project_id
+
+  # Configure message retention
+  message_retention_duration = "604800s"  # 7 days
+  retain_acked_messages = false
+
+  # Configure acknowledgement deadline
+  ack_deadline_seconds = 60
+
+  # Enable message ordering if needed
+  enable_message_ordering = true
+
+  # Configure expiration policy
+  expiration_policy {
+    ttl = "2592000s"  # 30 days
+  }
+
+  # Configure retry policy
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"  # 10 minutes
+  }
 }
 
-resource "google_pubsub_subscription" "bigquery" {
-  count   = contains(var.enabled_subscribers, "bigquery") ? 1 : 0
-  name    = "bigquery-subscription-${var.environment}"
-  topic   = google_pubsub_topic.main.name
+# Grant publisher access to service account
+resource "google_pubsub_topic_iam_member" "publisher" {
   project = var.project_id
+  topic   = google_pubsub_topic.payments.name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${var.service_account}"
 }
 
-resource "google_pubsub_subscription" "gcs" {
-  count   = contains(var.enabled_subscribers, "gcs") ? 1 : 0
-  name    = "gcs-subscription-${var.environment}"
-  topic   = google_pubsub_topic.main.name
-  project = var.project_id
-}
-
-resource "google_pubsub_subscription" "alloydb" {
-  count   = contains(var.enabled_subscribers, "alloydb") ? 1 : 0
-  name    = "alloydb-subscription-${var.environment}"
-  topic   = google_pubsub_topic.main.name
-  project = var.project_id
-}
-
-resource "google_pubsub_subscription" "cloudsql" {
-  count   = contains(var.enabled_subscribers, "cloudsql") ? 1 : 0
-  name    = "cloudsql-subscription-${var.environment}"
-  topic   = google_pubsub_topic.main.name
-  project = var.project_id
+# Grant subscriber access to service account
+resource "google_pubsub_subscription_iam_member" "subscriber" {
+  project      = var.project_id
+  subscription = google_pubsub_subscription.payments.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${var.service_account}"
 }

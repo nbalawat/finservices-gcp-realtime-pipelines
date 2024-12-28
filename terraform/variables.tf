@@ -14,9 +14,3 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
-
-variable "enabled_subscribers" {
-  description = "List of enabled subscribers"
-  type        = list(string)
-  default     = ["bigtable"] # Start with just BigTable
-}

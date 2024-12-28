@@ -11,14 +11,15 @@ class PaymentPipeline:
     """Unified pipeline for processing multiple payment types."""
     
     def __init__(self):
-        self.pipeline_options = PaymentPipelineOptions()
+        self.pipeline_options = PipelineOptions()
+        self.custom_options = self.pipeline_options.view_as(PaymentPipelineOptions)
 
     def build_and_run(self):
         """Build and run the payment processing pipeline."""
         with beam.Pipeline(options=self.pipeline_options) as pipeline:
             # Read messages from Pub/Sub
             messages = pipeline | "Read from Pub/Sub" >> beam.io.ReadFromPubSub(
-                subscription=self.pipeline_options.input_subscription
+                subscription=self.custom_options.input_subscription
             )
 
             # Parse JSON and handle errors
@@ -32,7 +33,7 @@ class PaymentPipeline:
             _ = (
                 errors
                 | "Write Parse Errors" >> beam.io.WriteToBigQuery(
-                    self.pipeline_options.error_table,
+                    self.custom_options.error_table,
                     schema='error_type:STRING,error_message:STRING,raw_data:STRING,timestamp:TIMESTAMP',
                     write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
                     create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED
@@ -64,7 +65,7 @@ class PaymentPipeline:
             _ = (
                 prepared_data.main
                 | "Write to BigQuery" >> beam.io.WriteToBigQuery(
-                    self.pipeline_options.output_table,
+                    self.custom_options.output_table,
                     schema='transaction_id:STRING,payment_type:STRING,customer_id:STRING,'
                            'amount:FLOAT,currency:STRING,sender_account:STRING,'
                            'receiver_account:STRING,timestamp:TIMESTAMP,status:STRING,'
@@ -75,12 +76,12 @@ class PaymentPipeline:
             )
 
             # Write to different BigTable tables using configured table names
-            for output_name, table_id in self.pipeline_options.bigtable_tables.items():
+            for output_name, table_id in self.custom_options.bigtable_tables.items():
                 _ = (
                     getattr(prepared_data, output_name)
                     | f"Write to BigTable ({output_name})" >> beam.io.gcp.bigtable.WriteToBigTable(
                         project_id=self.pipeline_options.project,
-                        instance_id=self.pipeline_options.bigtable_instance,
+                        instance_id=self.custom_options.bigtable_instance,
                         table_id=table_id
                     )
                 )

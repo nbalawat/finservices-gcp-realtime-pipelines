@@ -8,12 +8,7 @@ variable "environment" {
   type        = string
 }
 
-variable "region" {
-  description = "The default region for resources"
+variable "service_account" {
+  description = "Service account email"
   type        = string
-}
-
-variable "enabled_subscribers" {
-  description = "List of enabled subscribers"
-  type        = list(string)
 }
