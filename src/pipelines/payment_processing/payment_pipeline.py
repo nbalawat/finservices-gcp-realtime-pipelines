@@ -1,10 +1,11 @@
 """Main payment processing pipeline."""
 
 import apache_beam as beam
-from apache_beam.options.pipeline_options import PipelineOptions
-from .common.base_pipeline import PaymentPipelineOptions, PaymentJsonParsingDoFn
-from .transformations.payment_transforms import PaymentTransform, PrepareForStorage
 import logging
+from apache_beam.options.pipeline_options import PipelineOptions
+from .common.base_pipeline import PaymentJsonParsingDoFn
+from .config import PaymentPipelineOptions
+from .transformations.payment_transforms import PaymentTransform, PrepareForStorage
 
 class PaymentPipeline:
     """Unified pipeline for processing multiple payment types."""
@@ -73,17 +74,8 @@ class PaymentPipeline:
                 )
             )
 
-            # Write to different BigTable tables
-            bigtable_tables = {
-                'customer_time_type': f"{self.pipeline_options.bigtable_table}_by_customer_time_type",
-                'customer_time': f"{self.pipeline_options.bigtable_table}_by_customer_time",
-                'time_customer': f"{self.pipeline_options.bigtable_table}_by_time_customer",
-                'transaction': f"{self.pipeline_options.bigtable_table}_by_transaction",
-                'customer_type': f"{self.pipeline_options.bigtable_table}_by_customer_type"
-            }
-
-            # Write to each BigTable table with different row key strategy
-            for output_name, table_id in bigtable_tables.items():
+            # Write to different BigTable tables using configured table names
+            for output_name, table_id in self.pipeline_options.bigtable_tables.items():
                 _ = (
                     getattr(prepared_data, output_name)
                     | f"Write to BigTable ({output_name})" >> beam.io.gcp.bigtable.WriteToBigTable(

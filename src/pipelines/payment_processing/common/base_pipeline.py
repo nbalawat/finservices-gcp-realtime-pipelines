@@ -8,36 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import os
-
-class PaymentPipelineOptions(PipelineOptions):
-    @classmethod
-    def _add_argparse_args(cls, parser):
-        parser.add_argument(
-            '--subscription',
-            required=True,
-            help='Input PubSub subscription'
-        )
-        parser.add_argument(
-            '--window_size',
-            default=60,
-            type=int,
-            help='Window size in seconds'
-        )
-        parser.add_argument(
-            '--output_table',
-            required=True,
-            help='BigQuery output table in format: project:dataset.table'
-        )
-        parser.add_argument(
-            '--bigtable_instance',
-            help='BigTable instance ID',
-            default=os.getenv('BIGTABLE_INSTANCE')
-        )
-        parser.add_argument(
-            '--bigtable_table',
-            help='BigTable table ID',
-            default=os.getenv('BIGTABLE_TABLE')
-        )
+from ..config import PaymentPipelineOptions
 
 class PaymentJsonParsingDoFn(beam.DoFn):
     def process(self, element):
