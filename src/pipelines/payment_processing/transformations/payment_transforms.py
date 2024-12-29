@@ -9,21 +9,29 @@ import logging
 class PaymentTransform(beam.DoFn):
     """Transform raw payment data based on payment type."""
     
-    def process(self, element: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def process(self, element: Dict[str, Any]) -> Generator[Dict[str, Any], None, None]:
         payment_type = element.get('payment_type', '').upper()
+        logging.info(f"Processing payment type: {payment_type}")
         
         if not payment_type:
-            return None
+            logging.warning("No payment type found in element")
+            return
             
         transform_method = getattr(self, f'transform_{payment_type.lower()}', None)
         if not transform_method:
-            return None
+            logging.warning(f"No transform method found for payment type: {payment_type}")
+            return
             
         try:
-            return transform_method(element)
+            result = transform_method(element)
+            if result:
+                logging.info(f"Successfully transformed {payment_type} payment: {result}")
+                yield result
+            else:
+                logging.warning(f"Transform returned None for {payment_type} payment")
         except Exception as e:
             logging.error(f"Error transforming {payment_type} payment: {e}")
-            return None
+            return
 
     def transform_ach(self, payment: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Transform ACH payment data."""
@@ -100,7 +108,10 @@ class PrepareForStorage(beam.DoFn):
     def process(self, element: Dict[str, Any]) -> Generator[Dict[str, Any], None, None]:
         """Emit payment data formatted for different storage systems."""
         if not element:
+            logging.warning("Received empty element in PrepareForStorage")
             return
+
+        logging.info(f"Preparing payment for storage: {element}")
 
         # Common BigTable data structure
         base_data = {
@@ -126,6 +137,7 @@ class PrepareForStorage(beam.DoFn):
 
         # Prepare for BigQuery (main output)
         bigquery_data = self.prepare_for_bigquery(element)
+        logging.info(f"Prepared BigQuery data: {bigquery_data}")
         yield bigquery_data
 
         # Prepare for different BigTable tables with various row key strategies

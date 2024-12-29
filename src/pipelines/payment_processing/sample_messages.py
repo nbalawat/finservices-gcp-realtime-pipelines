@@ -62,7 +62,7 @@ def generate_rtp_message() -> Dict[str, Any]:
         'customer_type': random.choice(['INDIVIDUAL', 'BUSINESS'])
     }
 
-def generate_sample_messages(num_messages: int = 10) -> str:
+def generate_sample_messages(num_messages: int = 10) -> list:
     """Generate a batch of sample messages."""
     messages = []
     generators = [generate_ach_message, generate_wire_message, generate_rtp_message]
@@ -71,7 +71,7 @@ def generate_sample_messages(num_messages: int = 10) -> str:
         message = random.choice(generators)()
         messages.append(message)
     
-    return json.dumps(messages, indent=2)
+    return messages
 
 if __name__ == '__main__':
     print(generate_sample_messages())

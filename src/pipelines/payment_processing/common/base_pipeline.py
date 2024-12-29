@@ -13,18 +13,26 @@ from ..config import PaymentPipelineOptions
 class PaymentJsonParsingDoFn(beam.DoFn):
     def process(self, element):
         try:
+            logging.info(f"Received element type: {type(element)}")
+            logging.info(f"Element content: {element}")
+            
             if isinstance(element, bytes):
                 data = element
             else:
                 data = element.data
             
+            logging.info(f"Data to parse: {data}")
+            logging.info(f"Data type: {type(data)}")
+            
             parsed = json.loads(data.decode('utf-8'))
+            logging.info(f"Successfully parsed JSON: {parsed}")
+            
             # Add metadata
             parsed['processing_timestamp'] = datetime.now(timezone.utc).isoformat()
             parsed['pipeline_version'] = '1.0'
             yield parsed
         except Exception as e:
-            logging.error(f"Error parsing JSON: {e}, Data: {data}")
+            logging.error(f"Error parsing JSON: {str(e)}, Data: {data}")
             # You might want to write to a dead letter queue here
             yield beam.pvalue.TaggedOutput('parsing_errors', {
                 'error': str(e),

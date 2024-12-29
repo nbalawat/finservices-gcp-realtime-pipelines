@@ -20,18 +20,3 @@ class PaymentPipelineOptions(PipelineOptions):
             '--error_table',
             help='Error BigQuery table'
         )
-        parser.add_argument(
-            '--bigtable_instance',
-            help='BigTable instance ID'
-        )
-
-    @property
-    def bigtable_tables(self):
-        """Return a mapping of output names to BigTable table IDs."""
-        return {
-            'customer_time_type': 'payments_by_customer_time_type',
-            'customer_time': 'payments_by_customer_time',
-            'time_customer': 'payments_by_time_customer',
-            'transaction': 'payments_by_transaction',
-            'customer_type': 'payments_by_customer_type'
-        }
