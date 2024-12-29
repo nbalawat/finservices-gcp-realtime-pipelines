@@ -6,6 +6,7 @@ import logging
 import json
 from datetime import datetime, timezone
 import pytz
+import time
 
 class ProcessPayment(beam.DoFn):
     """Process and transform payment data"""
@@ -16,10 +17,21 @@ class ProcessPayment(beam.DoFn):
             'medium': 1000,
             'large': float('inf')
         }
+        self.processed_count = 0
+        self.start_time = time.time()
+        
+    def _calculate_metrics(self):
+        """Calculate processing metrics"""
+        elapsed_time = time.time() - self.start_time
+        rate = self.processed_count / elapsed_time if elapsed_time > 0 else 0
+        return {
+            'processed_count': self.processed_count,
+            'elapsed_time': round(elapsed_time, 2),
+            'processing_rate': round(rate, 2)
+        }
         
     def _calculate_payment_metrics(self, amount: float, currency: str) -> dict:
         """Calculate additional payment metrics"""
-        # Categorize payment
         if amount < self.payment_thresholds['small']:
             category = 'small'
         elif amount < self.payment_thresholds['medium']:
@@ -33,53 +45,6 @@ class ProcessPayment(beam.DoFn):
             'is_high_value': amount >= self.payment_thresholds['medium']
         }
     
-    def _enrich_metadata(self, payment: dict, existing_metadata: dict) -> dict:
-        """Add enriched metadata"""
-        # Get processing timestamp in UTC
-        process_time = datetime.now(timezone.utc)
-        
-        # Calculate time since transaction
-        try:
-            tx_time = datetime.strptime(payment['timestamp'], '%Y-%m-%d %H:%M:%S')
-            tx_time = pytz.UTC.localize(tx_time)
-            processing_delay_ms = int((process_time - tx_time).total_seconds() * 1000)
-        except Exception:
-            processing_delay_ms = None
-            
-        # Add processing information
-        processing_info = {
-            'processed_timestamp': process_time.strftime('%Y-%m-%d %H:%M:%S'),
-            'processing_delay_ms': processing_delay_ms,
-            'processor_version': '1.0.0',
-            'environment': 'development'
-        }
-        
-        # Add payment analysis
-        payment_metrics = self._calculate_payment_metrics(
-            float(payment['amount']), 
-            payment['currency']
-        )
-        
-        # Add account information
-        account_info = {
-            'accounts_match': payment['sender_account'] == payment['receiver_account'],
-            'account_prefix': payment['sender_account'][:3],
-            'is_internal': payment['sender_account'][:3] == payment['receiver_account'][:3]
-        }
-        
-        # Combine all metadata
-        return {
-            **existing_metadata,
-            'processing': processing_info,
-            'payment_metrics': payment_metrics,
-            'account_analysis': account_info,
-            'derived_fields': {
-                'hour_of_day': tx_time.hour if 'tx_time' in locals() else None,
-                'is_business_hours': 9 <= tx_time.hour <= 17 if 'tx_time' in locals() else None,
-                'same_currency_pair': True  # Could be enhanced with currency pair logic
-            }
-        }
-    
     def process(self, element):
         try:
             # Parse JSON message
@@ -88,8 +53,35 @@ class ProcessPayment(beam.DoFn):
             # Parse existing metadata
             existing_metadata = json.loads(payment['metadata'])
             
-            # Enrich metadata with transformations
-            enriched_metadata = self._enrich_metadata(payment, existing_metadata)
+            # Get processing timestamp
+            process_time = datetime.now(timezone.utc)
+            
+            # Calculate processing delay
+            tx_time = datetime.strptime(payment['timestamp'], '%Y-%m-%d %H:%M:%S')
+            tx_time = pytz.UTC.localize(tx_time)
+            processing_delay_ms = int((process_time - tx_time).total_seconds() * 1000)
+            
+            # Calculate payment metrics
+            payment_metrics = self._calculate_payment_metrics(
+                float(payment['amount']), 
+                payment['currency']
+            )
+            
+            # Add enriched metadata
+            enriched_metadata = {
+                **existing_metadata,
+                'processing': {
+                    'processed_timestamp': process_time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'processing_delay_ms': processing_delay_ms,
+                    'processor_version': '1.0.0'
+                },
+                'payment_metrics': payment_metrics,
+                'account_analysis': {
+                    'accounts_match': payment['sender_account'] == payment['receiver_account'],
+                    'account_prefix': payment['sender_account'][:3],
+                    'is_internal': payment['sender_account'][:3] == payment['receiver_account'][:3]
+                }
+            }
             
             # Create transformed payment
             transformed_payment = {
@@ -106,7 +98,22 @@ class ProcessPayment(beam.DoFn):
                 'metadata': json.dumps(enriched_metadata)
             }
             
-            logging.debug(f"Processed payment: {transformed_payment['transaction_id']}")
+            # Update metrics
+            self.processed_count += 1
+            metrics = self._calculate_metrics()
+            
+            # Log processing details
+            logging.info(
+                f"Processed payment {self.processed_count}:\n"
+                f"  Transaction ID: {payment['transaction_id']}\n"
+                f"  Amount: {payment['currency']} {payment['amount']}\n"
+                f"  Category: {payment_metrics['amount_category']}\n"
+                f"  Processing Delay: {processing_delay_ms}ms\n"
+                f"  Stats: Processed {metrics['processed_count']} messages "
+                f"in {metrics['elapsed_time']}s "
+                f"(Rate: {metrics['processing_rate']}/s)"
+            )
+            
             yield transformed_payment
             
         except Exception as e:
@@ -127,7 +134,6 @@ def run_pipeline():
     ])
     options.view_as(StandardOptions).streaming = True
 
-    # Schema matching existing table
     schema = 'transaction_id:STRING,payment_type:STRING,customer_id:STRING,' \
             'amount:FLOAT64,currency:STRING,sender_account:STRING,' \
             'receiver_account:STRING,timestamp:TIMESTAMP,status:STRING,' \
@@ -138,28 +144,31 @@ def run_pipeline():
     logging.info(f"Writing to: {table_spec}")
 
     with beam.Pipeline(options=options) as pipeline:
-        (pipeline 
-         | 'Read from PubSub' >> ReadFromPubSub(subscription=subscription_path)
-         | 'Process Payments' >> beam.ParDo(ProcessPayment())
-         | 'Write to BigQuery' >> WriteToBigQuery(
-             table=table_spec,
-             schema=schema,
-             create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-             write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-             method='STREAMING_INSERTS'
-         ))
+        # Add monitoring
+        messages = (pipeline 
+                   | 'Read from PubSub' >> ReadFromPubSub(subscription=subscription_path)
+                   | 'Process Payments' >> beam.ParDo(ProcessPayment()))
+        
+        # Write to BigQuery
+        _ = (messages | 'Write to BigQuery' >> WriteToBigQuery(
+                table=table_spec,
+                schema=schema,
+                create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+                method='STREAMING_INSERTS'
+            ))
 
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
     
     try:
         run_pipeline()
         
         while True:
-            import time
             time.sleep(1)
             
     except KeyboardInterrupt:
