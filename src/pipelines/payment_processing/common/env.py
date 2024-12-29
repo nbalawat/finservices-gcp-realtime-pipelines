@@ -20,7 +20,7 @@ def load_env():
     
     # Debug: print all environment variables
     logging.info("Environment variables after loading:")
-    for key in ['PROJECT_ID', 'ENVIRONMENT', 'PUBSUB_TOPIC', 'PUBSUB_SUBSCRIPTION']:
+    for key in ['PROJECT_ID', 'ENVIRONMENT', 'PUBSUB_TOPIC', 'PUBSUB_SUBSCRIPTION', 'SERVICE_ACCOUNT_EMAIL']:
         logging.info(f"{key}: {os.getenv(key)}")
 
 def get_env_var(name: str, default: str = None) -> str:

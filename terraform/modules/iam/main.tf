@@ -12,6 +12,7 @@ resource "google_project_iam_member" "pipeline_roles" {
     "roles/pubsub.subscriber",
     "roles/bigquery.dataEditor",
     "roles/bigquery.jobUser",
+    "roles/bigquery.user",
     "roles/bigtable.user",
     "roles/dataflow.worker",
     "roles/storage.objectViewer"
@@ -44,6 +45,10 @@ resource "google_project_iam_custom_role" "pipeline_custom_role" {
     "bigquery.tables.updateData",
     "bigquery.tables.get",
     "bigquery.tables.update",
+    "bigquery.tables.delete",
+    "bigquery.datasets.create",
+    "bigquery.datasets.get",
+    "bigquery.jobs.create",
     "bigtable.tables.readRows",
     "bigtable.tables.mutateRows",
     "pubsub.topics.publish",

@@ -49,15 +49,7 @@ module "databases" {
 #   source             = "./modules/dataflow"
 #   project_id         = var.project_id
 #   environment        = var.environment
-#   enabled_subscribers = var.enabled_subscribers
-#   temp_gcs_location  = module.storage.temp_bucket_url
-#   
-#   # Use classic template
-#   template_path     = "gs://${module.storage.staging_bucket_name}/templates/payment_pipeline"
-#   
-#   # Single subscription for all payment data
-#   input_subscription = module.pubsub.subscription_path
+#   service_account    = module.iam.service_account_email
 #   region            = var.region
-#   
-#   depends_on = [module.services, module.pubsub, module.storage, module.databases]
+#   depends_on = [module.services, module.iam]
 # }

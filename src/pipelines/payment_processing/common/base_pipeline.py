@@ -45,7 +45,18 @@ class BasePaymentPipeline(ABC):
     
     def __init__(self, pipeline_options: PaymentPipelineOptions):
         self.pipeline_options = pipeline_options
-        self.pipeline = beam.Pipeline(options=pipeline_options)
+        options = {
+            'runner': 'DirectRunner',
+            'streaming': True,
+            'project': self.pipeline_options.project,
+            'temp_location': self.pipeline_options.temp_location,
+            'staging_location': self.pipeline_options.staging_location,
+            'service_account_email': self.pipeline_options.service_account_email,  # Add service account if specified
+            'input_subscription': self.pipeline_options.subscription,
+            'output_table': self.pipeline_options.output_table,
+            'error_table': self.pipeline_options.error_table,
+        }
+        self.pipeline = beam.Pipeline(options=PipelineOptions.from_dictionary(options))
 
     @abstractmethod
     def transform_payment(self, payment: Dict[str, Any]) -> Optional[Dict[str, Any]]:
