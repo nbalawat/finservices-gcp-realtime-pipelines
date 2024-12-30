@@ -125,12 +125,14 @@ class PaymentGeneratorFn(beam.DoFn):
 
 class FormatForBigTableFn(beam.DoFn):
     def __init__(self, row_key_format: str):
-        self.row_key_format = row_key_format
+        # Format will be like 'customerId#transaction_date#transaction_type'
+        self.key_components = row_key_format.split('#')
+        logger.info(f"Initialized FormatForBigTableFn with components: {self.key_components}")
 
     def process(self, element: Dict[str, Any]) -> List[Dict[str, Any]]:
         header = element['payment_header']
         customer_id = element['parties']['originator']['party_id']
-        transaction_date = header['created_at'].split('T')[0]
+        transaction_date = header['created_at']
         
         # Log BigTable formatting details
         logger.info(f"Formatting payment for BigTable - Customer: {customer_id}, Date: {transaction_date}, Type: {header['payment_type']}")
@@ -142,8 +144,17 @@ class FormatForBigTableFn(beam.DoFn):
             'transaction_id': header['payment_id']
         }
         
-        row_key = self.row_key_format.format(**components)
-        logger.info(f"Created BigTable row key: {row_key}")
+        logger.info(f"Available components: {list(components.keys())}")
+        logger.info(f"Required components: {self.key_components}")
+        
+        # Build the row key by joining components with '#'
+        try:
+            row_key_parts = [str(components[part]) for part in self.key_components]
+            row_key = '#'.join(row_key_parts)
+            logger.info(f"Created BigTable row key: {row_key}")
+        except KeyError as e:
+            logger.error(f"Missing component {e} in data: {components}")
+            raise
         
         yield {
             'row_key': row_key,
@@ -185,7 +196,7 @@ def run(argv=None):
         
         # Format for BigTable
         bigtable_rows = payments | "Format for BigTable" >> beam.ParDo(
-            FormatForBigTableFn(row_key_format="{customerId}#{transaction_date}#{transaction_type}#{transaction_id}")
+            FormatForBigTableFn(row_key_format="customerId#transaction_date#transaction_type#transaction_id")
         )
         
         logger.info("Pipeline built successfully")

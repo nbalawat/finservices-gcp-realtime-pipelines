@@ -1,5 +1,8 @@
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions, SetupOptions, WorkerOptions
+from apache_beam.transforms.window import FixedWindows
+from apache_beam.transforms import trigger
+from typing import Dict, Any, List
 import logging
 from bigtable_setup import BigTableSetup, setup_bigtable
 from payment_generator import PaymentGeneratorFn, FormatForBigTableFn
@@ -27,6 +30,7 @@ def run_pipeline(pipeline_options: PaymentPipelineOptions):
     try:
         logger.info("=== Pipeline Execution Started ===")
         logger.info(f"Start Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"Pipeline Options: {pipeline_options.get_all_options()}")
         
         logger.info("Verifying BigTable setup...")
         setup_bigtable(
@@ -48,31 +52,43 @@ def run_pipeline(pipeline_options: PaymentPipelineOptions):
             logger.info("Pipeline object created successfully")
             
             # Generate payments
+            logger.info("Creating main data transform...")
+      
             main_data = (pipeline
                         | 'Create Events' >> beam.Create(range(pipeline_options.num_records))
+                        | 'Window' >> beam.WindowInto(FixedWindows(60))  # 60-second windows
+                        | 'Reshuffle' >> beam.Reshuffle()
                         | 'Generate Payments' >> beam.ParDo(PaymentGeneratorFn(
                             pipeline_options.num_customers,
                             pipeline_options.start_date,
                             pipeline_options.end_date
                         )))
             
-            logger.info("Main data transform created")
+            logger.info("Main data transform created successfully")
             
             # Write to different BigTable tables
             for table_name, row_key_format in bt_setup.TABLE_CONFIGS.items():
                 logger.info(f"Setting up pipeline for table: {table_name}")
-                table_data = (main_data
-                             | f'Format {table_name}' >> beam.ParDo(
-                                 FormatForBigTableFn(row_key_format))
-                             | f'Write {table_name}' >> beam.ParDo(
-                                 WriteToBigtable(
-                                     project_id=pipeline_options.project_id,
-                                     instance_id=pipeline_options.bigtable_instance,
-                                     table_id=table_name
-                                 ))
-                            )
+                try:
+                    table_data = (main_data
+                                 | f'Format {table_name}' >> beam.ParDo(
+                                     FormatForBigTableFn(row_key_format))
+                                 | f'Write {table_name}' >> beam.ParDo(
+                                     WriteToBigtable(
+                                         project_id=pipeline_options.project_id,
+                                         instance_id=pipeline_options.bigtable_instance,
+                                         table_id=table_name
+                                     ))
+                                )
+                    logger.info(f"Pipeline branch for table {table_name} created successfully")
+                except Exception as e:
+                    logger.error(f"Error setting up pipeline for table {table_name}: {str(e)}", exc_info=True)
+                    raise
+            
+            logger.info("Pipeline definition completed successfully")
+            logger.info("Starting pipeline execution...")
         
-        logger.info("Pipeline definition completed successfully")
+        logger.info("Pipeline execution completed")
         
     except Exception as e:
         logger.error(f"Pipeline failed with error: {str(e)}", exc_info=True)

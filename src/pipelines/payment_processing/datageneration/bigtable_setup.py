@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 class BigTableSetup:
     TABLE_CONFIGS = {
         'payments_by_customer': 'customerId#transaction_date#transaction_type',
-        'payments_by_date': 'transaction_date#transaction_type#customer_id',
-        'payments_by_transaction': 'transaction_id#customer_id#transaction_date',
+        'payments_by_date': 'transaction_date#transaction_type#customerId',
+        'payments_by_transaction': 'transaction_id#customerId#transaction_date',
         'payments_by_id': 'transaction_id',
         'payments_by_id_date': 'transaction_id#transaction_date'
     }

@@ -10,8 +10,8 @@ python datagenerator_pipeline.py \
     --project=agentic-experiments-446019 \
     --project_id=agentic-experiments-446019 \
     --bigtable_instance=payment-processing-dev \
-    --num_records=200000000 \
-    --num_customers=10000 \
+    --num_records=200 \
+    --num_customers=10 \
     --start_date=2024-03-01 \
     --end_date=2024-03-31 \
     --runner=DataflowRunner \
