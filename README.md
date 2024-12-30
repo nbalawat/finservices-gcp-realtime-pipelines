@@ -12,39 +12,6 @@ The pipeline processes payment transactions in real-time using the following com
 - **Cloud Bigtable**: Provides low-latency access to payment state
 - **Cloud Storage**: Stores Dataflow templates and temporary files
 
-## Project Structure
-
-```
-.
-├── src/
-│   └── pipelines/
-│       └── payment_processing/
-│           ├── pipeline.py          # Main Apache Beam pipeline
-│           └── transforms/          # Custom beam transforms
-├── terraform/
-│   ├── environments/               # Environment-specific configurations
-│   │   ├── dev/
-│   │   └── prod/
-│   ├── modules/                    # Reusable Terraform modules
-│   │   ├── databases/             # BigQuery and Bigtable resources
-│   │   ├── dataflow/             # Dataflow job configurations
-│   │   ├── iam/                  # IAM roles and service accounts
-│   │   ├── pubsub/              # Pub/Sub topics and subscriptions
-│   │   ├── services/           # GCP API services
-│   │   └── storage/           # GCS bucket configurations
-│   ├── main.tf                # Main Terraform configuration
-│   └── variables.tf           # Input variables
-└── requirements.txt           # Python dependencies
-```
-
-## Prerequisites
-
-1. Google Cloud Platform account with billing enabled
-2. Terraform >= 1.0
-3. Python >= 3.8
-4. Google Cloud SDK
-5. Apache Beam SDK for Python
-
 ## Setup Instructions
 
 1. **Initialize GCP Project**
@@ -60,13 +27,13 @@ The pipeline processes payment transactions in real-time using the following com
    pip install -r requirements.txt
    ```
 
-3. **Configure Terraform**
+3. **Configure Terraform --- THIS IS WIP**
    ```bash
    cd terraform
    terraform init
    ```
 
-4. **Deploy Infrastructure**
+4. **Deploy Infrastructure --- THIS IS WIP**
    ```bash
    # For development environment
    cd environments/dev
@@ -76,6 +43,17 @@ The pipeline processes payment transactions in real-time using the following com
    cd environments/prod
    terraform apply
    ```
+
+## Working with Service Accounts
+- this is very most important step
+- ensure that the service accounts have the following permissions
+- this is related to pubsub, bigtable, bigquery, storage
+![alt text](image.png)
+
+- Ensure that you set this env variable
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/Users/nbalawat/development/apache-beam-examples/key.json
+```
 
 ## Pipeline Components
 
@@ -95,46 +73,12 @@ The pipeline processes payment transactions in real-time using the following com
 
 ## Infrastructure Management
 
-### Service Account Permissions
-The pipeline uses a dedicated service account with the following roles:
-- Pub/Sub Publisher/Subscriber
-- Dataflow Worker
-- BigQuery Data Editor
-- Bigtable User
-- Storage Object Viewer
-
 ### Resource Naming Convention
 Resources follow the pattern: `{resource-type}-{environment}-{optional-suffix}`
 Example: `pipeline-dev-cluster` for Bigtable cluster in dev environment
 
-## Monitoring and Logging
 
-- Dataflow job metrics available in Cloud Console
-- Custom metrics tracked for payment processing success/failure
-- Error logs stored in BigQuery for analysis
-
-## Development Guidelines
-
-1. **Local Testing**
-   ```bash
-   # Run unit tests
-   python -m pytest tests/
-   
-   # Run pipeline locally
-   python src/pipelines/payment_processing/pipeline.py \
-     --project=$PROJECT_ID \
-     --runner=DirectRunner
-   ```
-
-2. **Deployment**
-   ```bash
-   # Deploy to Dataflow
-   python src/pipelines/payment_processing/pipeline.py \
-     --project=$PROJECT_ID \
-     --runner=DataflowRunner \
-     --region=us-central1 \
-     --temp_location=gs://dataflow-temp-{project}-{env}
-   ```
+## Details of How to Use the BigTable CLI and access
 
 Below is a **Markdown** document containing various ways to “query” Cloud Bigtable using both the **`cbt` CLI** and the **Python client library**. You can copy and paste the content into a file (e.g., `bigtable_queries.md`) and download it.
 
