@@ -1,0 +1,9 @@
+setuptools.setup(
+    name='payment-data-generator',
+    version='1.0.0',
+    install_requires=[
+        'apache-beam[gcp]',
+        'google-cloud-bigtable',
+    ],
+    packages=setuptools.find_packages(),
+)
