@@ -1,0 +1,23 @@
+bigtable_perf/
+├── config/
+│   ├── __init__.py
+│   ├── settings.py           # Configuration parameters
+│   └── table_schemas.py      # Table definitions and key structures
+├── core/
+│   ├── __init__.py
+│   ├── client.py            # BigTable client wrapper
+│   ├── query_executor.py    # Query execution engine
+│   └── metrics.py           # Metrics collection utilities
+├── queries/
+│   ├── __init__.py
+│   ├── base.py             # Abstract base query class
+│   ├── customer.py         # Customer-centric queries
+│   └── generic.py          # Generic queries
+├── analysis/
+│   ├── __init__.py
+│   ├── processor.py        # Results processing
+│   └── visualizer.py       # Visualization utilities
+├── tests/
+│   └── __init__.py
+├── main.py                 # Main execution script
+└── requirements.txt
