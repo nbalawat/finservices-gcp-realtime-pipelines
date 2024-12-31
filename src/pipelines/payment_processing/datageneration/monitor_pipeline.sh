@@ -1,61 +1,69 @@
 #!/bin/bash
 
-# Set your project ID
+# Set variables
 PROJECT_ID="agentic-experiments-446019"
+REGION="us-east4"
 
-# Function to check job status
-check_job_status() {
-    local job_id=$1
-    gcloud dataflow jobs describe "$job_id" \
-        --project="$PROJECT_ID" \
-        --format="table(
-            id,
-            name,
-            type,
-            createTime,
-            state,
-            currentWorkers,
-            cpuTime,
-            memoryInfo.currentUsage
-        )"
-}
-
-# Function to get job metrics
-get_job_metrics() {
-    local job_id=$1
-    gcloud dataflow jobs metrics list "$job_id" \
-        --project="$PROJECT_ID" \
-        --format="table(
-            name,
-            scalar,
-            updateTime
-        )"
-}
-
-# Get the latest job ID
+# Get the most recent job ID
 JOB_ID=$(gcloud dataflow jobs list \
-    --project="$PROJECT_ID" \
-    --filter="name:payment-data-generator" \
-    --format="get(id)" \
+    --project=$PROJECT_ID \
+    --region=$REGION \
+    --status=active \
+    --format="value(JOB_ID)" \
     --limit=1)
 
 if [ -z "$JOB_ID" ]; then
-    echo "No Dataflow job found"
+    echo "No active Dataflow job found"
     exit 1
 fi
 
 echo "Monitoring Dataflow job: $JOB_ID"
 echo "View in Console: https://console.cloud.google.com/dataflow/jobs/$PROJECT_ID/$JOB_ID?project=$PROJECT_ID"
-echo
 
+# Monitor job progress
 while true; do
     clear
     echo "=== Job Status ==="
-    check_job_status "$JOB_ID"
-    echo
-    echo "=== Job Metrics ==="
-    get_job_metrics "$JOB_ID"
-    echo
-    echo "Press Ctrl+C to stop monitoring"
+    gcloud dataflow jobs show $JOB_ID \
+        --project=$PROJECT_ID \
+        --region=$REGION \
+        --format="table(
+            id,
+            name,
+            currentState,
+            currentStateTime,
+            createTime,
+            requestedState,
+            location,
+            sdkVersion,
+            environment.workerPools[].numWorkers
+        )"
+
+    echo -e "\n=== Job Progress ==="
+    gcloud dataflow jobs show $JOB_ID \
+        --project=$PROJECT_ID \
+        --region=$REGION \
+        --format="table(
+            id,
+            name,
+            environment.workerPools[].defaultPackageSet,
+            environment.workerPools[].machineType,
+            environment.workerPools[].numWorkers,
+            environment.workerPools[].taskrunnerSettings.taskSchedulingMode
+        )"
+
+    # Check if job is complete
+    JOB_STATE=$(gcloud dataflow jobs show $JOB_ID \
+        --project=$PROJECT_ID \
+        --region=$REGION \
+        --format="value(currentState)")
+
+    if [[ "$JOB_STATE" == "JOB_STATE_DONE" || "$JOB_STATE" == "JOB_STATE_FAILED" || "$JOB_STATE" == "JOB_STATE_CANCELLED" ]]; then
+        echo "Job $JOB_STATE"
+        break
+    fi
+
+    echo -e "\nRefreshing in 30 seconds... (Ctrl+C to exit)"
+    echo "For more detailed metrics, visit the Cloud Console URL above"
     sleep 30
 done

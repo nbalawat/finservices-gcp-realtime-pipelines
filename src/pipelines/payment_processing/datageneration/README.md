@@ -181,3 +181,144 @@ Common issues and solutions:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Key Learnings and Best Practices
+
+### 1. Apache Beam Version Compatibility
+- Use `apache-beam[gcp]>=2.61.0` for better compatibility with Google Cloud services
+- Newer versions provide improved performance and stability
+- Include all necessary dependencies in `requirements.txt`
+
+### 2. Pipeline Optimization Techniques
+- **Memory Management**:
+  - Use `beam.WindowInto(FixedWindows(60))` for better memory distribution
+  - Implement `Reshuffle()` to redistribute data across workers
+  - Batch writes to BigTable for optimal throughput
+
+- **Scaling Strategies**:
+  - Start with small data volumes for testing
+  - Gradually increase to production scale
+  - Monitor worker utilization and adjust resources accordingly
+
+### 3. BigTable Best Practices
+- **Row Key Design**:
+  - Use '#' as separator in row keys (e.g., `customerId#transaction_date#transaction_type`)
+  - Design keys for optimal read patterns
+  - Maintain consistent key formats across tables
+
+- **Multiple Table Layouts**:
+  ```python
+  TABLE_CONFIGS = {
+      'payments_by_customer': 'customerId#transaction_date#transaction_type',
+      'payments_by_date': 'transaction_date#transaction_type#customerId',
+      'payments_by_transaction': 'transaction_id#customerId#transaction_date'
+  }
+  ```
+
+### 4. Performance Tuning
+- **Dataflow Settings**:
+  ```bash
+  --max_num_workers=50
+  --worker_machine_type=n2-standard-8
+  --disk_size_gb=50
+  ```
+
+- **Pipeline Parameters**:
+  ```bash
+  --num_records=50000000    # Adjust based on needs
+  --num_customers=10000     # Balance with data distribution
+  ```
+
+### 5. Monitoring and Debugging
+- **Job Monitoring**:
+  - Use `monitor_pipeline.sh` for real-time status
+  - Check Cloud Console for detailed metrics
+  - Monitor BigTable write throughput
+
+- **Logging Strategy**:
+  ```python
+  logger.info(f"Created BigTable row key: {row_key}")
+  logger.error(f"Error setting up pipeline: {str(e)}", exc_info=True)
+  ```
+
+### 6. Development Workflow
+1. **Local Testing**:
+   ```bash
+   ./run_local.sh
+   # Use small data volumes
+   --num_records=1000
+   --num_customers=100
+   ```
+
+2. **Production Deployment**:
+   ```bash
+   ./run_gcp.sh
+   # Scale up gradually
+   --num_records=50000000
+   --num_customers=10000
+   ```
+
+### 7. Common Issues and Solutions
+
+1. **Memory Issues**:
+   - Implement windowing
+   - Use Reshuffle transform
+   - Adjust worker machine type
+
+2. **BigTable Write Performance**:
+   - Batch mutations
+   - Monitor throttling
+   - Balance row key distribution
+
+3. **Pipeline Stuck**:
+   - Check worker logs
+   - Monitor step progress
+   - Verify resource allocation
+
+### 8. Code Organization
+- Separate concerns into specific files:
+  - `datagenerator_pipeline.py`: Main pipeline logic
+  - `payment_generator.py`: Data generation
+  - `bigtable_writer.py`: BigTable interaction
+  - `bigtable_setup.py`: Table configuration
+
+### 9. Testing Strategy
+1. **Unit Tests**:
+   - Test data generation
+   - Verify row key formatting
+   - Check BigTable mutations
+
+2. **Integration Tests**:
+   - Run with small data volumes
+   - Verify end-to-end flow
+   - Check data consistency
+
+### 10. Dependencies and Environment
+```txt
+apache-beam[gcp]==2.61.0
+google-cloud-bigtable==2.26.0
+google-cloud-bigquery==3.13.0
+python-dotenv==1.0.0
+```
+
+### 11. Security Considerations
+- Use service accounts with minimal required permissions
+- Store credentials securely
+- Implement proper error handling
+- Monitor access patterns
+
+### 12. Future Improvements
+1. **Performance**:
+   - Implement custom partitioning
+   - Optimize batch sizes
+   - Add caching where appropriate
+
+2. **Monitoring**:
+   - Add custom metrics
+   - Implement alerting
+   - Enhanced logging
+
+3. **Features**:
+   - Add data validation
+   - Implement cleanup jobs
+   - Add data quality checks
