@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional
 from google.cloud.bigtable.data import row_filters,RowRange as QueryRowRange, ReadRowsQuery
-from customer_query_base import CustomerQueryBase, BigtableConfig
+from customer_query_base import CustomerQueryBase, BigtableConfig, track_execution_time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,7 @@ class PaymentsByDateQuery(CustomerQueryBase):
                 )
             return row_filters.RowFilterUnion(filters=type_cust_filters)
         
+    @track_execution_time
     async def get_customer_transactions_by_types(
         self,
         customer_id: str,
@@ -387,6 +388,7 @@ class PaymentsByCustomerQuery(CustomerQueryBase):
             # Use RowFilterUnion for OR logic between transaction types
             return row_filters.RowFilterUnion(filters=type_filters)
 
+    @track_execution_time
     async def get_customer_transactions_by_types(
         self,
         customer_id: str,
@@ -482,44 +484,52 @@ async def main():
             )
             print(f"\n Results for {name}: {len(results)}")
             
-            # metrics = implementation.last_query_metrics
-            # metrics_summary.append({
-            #     'name': name,
-            #     'duration_ms': metrics.execution_time_ms,
-            #     'row_count': metrics.row_count,
-            #     'error': metrics.error
-            # })
+            metrics = implementation.last_query_metrics
+            if metrics is not None:
+                metrics_summary.append({
+                    'name': name,
+                    'duration_ms': metrics.execution_time_ms,
+                    'row_count': metrics.row_count,
+                    'error': metrics.error
+                })
+            else:
+                metrics_summary.append({
+                    'name': name,
+                    'duration_ms': 0,
+                    'row_count': len(results),
+                    'error': "No metrics available"
+                })
             
         except Exception as e:
             print(f"Error testing {name}: {e}")
     
-    # # Print performance comparison
-    # print("\nPerformance Comparison:")
-    # print("-" * 80)
-    # print(f"{'Query Type':<25} {'Duration (ms)':<15} {'Rows':<10} {'Status'}")
-    # print("-" * 80)
+    # Print performance comparison
+    print("\nPerformance Comparison:")
+    print("-" * 80)
+    print(f"{'Query Type':<25} {'Duration (ms)':<15} {'Rows':<10} {'Status'}")
+    print("-" * 80)
     
-    # # Sort by execution time
-    # metrics_summary.sort(key=lambda x: x['duration_ms'])
+    # Sort by execution time
+    metrics_summary.sort(key=lambda x: x['duration_ms'])
     
-    # for metric in metrics_summary:
-    #     status = "ERROR" if metric['error'] else "OK"
-    #     print(
-    #         f"{metric['name']:<25} "
-    #         f"{metric['duration_ms']:>13.2f}ms "
-    #         f"{metric['row_count']:>10} "
-    #         f"{status:>8}"
-    #     )
+    for metric in metrics_summary:
+        status = "ERROR" if metric['error'] else "OK"
+        print(
+            f"{metric['name']:<25} "
+            f"{metric['duration_ms']:>13.2f}ms "
+            f"{metric['row_count']:>10} "
+            f"{status:>8}"
+        )
     
-    # print("-" * 80)
+    print("-" * 80)
     
-    # # Print fastest and slowest
-    # if metrics_summary:
-    #     fastest = metrics_summary[0]
-    #     slowest = metrics_summary[-1]
-    #     print(f"\nFastest: {fastest['name']} ({fastest['duration_ms']:.2f}ms)")
-    #     print(f"Slowest: {slowest['name']} ({slowest['duration_ms']:.2f}ms)")
-    #     print(f"Difference: {slowest['duration_ms'] - fastest['duration_ms']:.2f}ms")
+    # Print fastest and slowest
+    if metrics_summary:
+        fastest = metrics_summary[0]
+        slowest = metrics_summary[-1]
+        print(f"\nFastest: {fastest['name']} ({fastest['duration_ms']:.2f}ms)")
+        print(f"Slowest: {slowest['name']} ({slowest['duration_ms']:.2f}ms)")
+        print(f"Difference: {slowest['duration_ms'] - fastest['duration_ms']:.2f}ms")
 
 if __name__ == "__main__":
     import asyncio
