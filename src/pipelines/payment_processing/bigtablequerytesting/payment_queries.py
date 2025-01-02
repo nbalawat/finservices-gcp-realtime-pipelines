@@ -482,6 +482,8 @@ async def main():
                 start_date=start_date,
                 end_date=end_date
             )
+
+            print(results)
             print(f"\n Results for {name}: {len(results)}")
             
             metrics = implementation.last_query_metrics
