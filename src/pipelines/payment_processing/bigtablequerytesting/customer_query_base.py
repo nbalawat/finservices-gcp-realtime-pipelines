@@ -22,9 +22,6 @@ class BigtableConfig:
     project_id: str
     instance_id: str
     table_id: str
-    app_profile_id: Optional[str] = None
-    read_rows_limit: Optional[int] = None
-    timeout: Optional[float] = None
 
 @dataclass
 class QueryMetrics:
@@ -118,35 +115,9 @@ class CustomerQueryBase(ABC):
             self._table = TableAsync(
                 client,
                 instance_id=self.config.instance_id,
-                table_id=self.config.table_id,
-                app_profile_id=self.config.app_profile_id,
-                read_rows_limit=self.config.read_rows_limit,
-                timeout=self.config.timeout
+                table_id=self.config.table_id
             )
         return self._table
-    
-    def _parse_row(self, row) -> Dict:
-        """Base row parsing logic
-        
-        Args:
-            row: Bigtable row
-            
-        Returns:
-            Dict containing parsed row data
-        """
-        cells = []
-        for cell in row.get_cells():
-            cells.append({
-                'column_family': cell.family,
-                'qualifier': cell.qualifier.decode('utf-8'),
-                'value': cell.value.decode('utf-8'),
-                'timestamp': cell.timestamp_micros
-            })
-            
-        return {
-            'row_key': row.row_key.decode('utf-8'),
-            'cells': cells
-        }
     
     @abstractmethod
     def _create_transaction_filter(
