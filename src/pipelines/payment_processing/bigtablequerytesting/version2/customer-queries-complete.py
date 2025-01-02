@@ -60,15 +60,18 @@ class CustomerQueryExecutor(ABC):
 
     def _parse_row(self, row) -> Dict:
         """Base row parsing logic"""
+        cells = []
+        for cell in row.get_cells():
+            cells.append({
+                'column_family': cell.family,
+                'qualifier': cell.qualifier.decode('utf-8'),
+                'value': cell.value.decode('utf-8'),
+                'timestamp': cell.timestamp_micros
+            })
+            
         return {
             'row_key': row.row_key.decode('utf-8'),
-            'data': {
-                col_family: {
-                    col: val[0].value.decode('utf-8')
-                    for col, val in columns.items()
-                }
-                for col_family, columns in row.cells.items()
-            }
+            'cells': cells
         }
 
 class CustomerTableExecutor(CustomerQueryExecutor):
